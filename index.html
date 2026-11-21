@@ -1388,7 +1388,7 @@ function sign(th,cls){
   return `<svg class="sign ${cls||""}" viewBox="0 0 64 64" aria-hidden="true">${shape}<g${shift}>${ic}</g></svg>`;
 }
 const PASS=8;
-let scores={},profile={name:"",email:""};
+let scores={},profile={name:""};
 try{scores=JSON.parse(localStorage.getItem("tsi_scores")||"{}")||{}}catch(e){scores={}}
 try{profile=Object.assign(profile,JSON.parse(localStorage.getItem("tsi_profile")||"{}"))}catch(e){}
 function save(){try{localStorage.setItem("tsi_scores",JSON.stringify(scores))}catch(e){}}
@@ -1459,32 +1459,116 @@ function finish(){
   go({view:"result",th:state.th,ti:state.ti,qs:state.qs,answers:state.answers,score:sc,date:new Date(),mail:null},false);
 }
 function fmtDate(d){return d.toLocaleDateString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric"})+" à "+d.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}
-function reportText(){
-  const th=T[state.th],t=th.tests[state.ti],ok=state.score>=PASS;
-  let s=`TEST SÉCURITÉ INDUSTRIE\n\n`;
-  if(profile.name)s+=`Technicien : ${profile.name}\n`;
-  s+=`Thème : ${th.name}\nTest ${state.ti+1} : ${t.t}\nDate : ${fmtDate(state.date)}\nRésultat : ${state.score}/10 – ${ok?"VALIDÉ":"À REVOIR"}\n\nDÉTAIL DES RÉPONSES\n`;
-  state.qs.forEach((q,i)=>{const a=state.answers[i];const good=a===q.good;s+=`\n${i+1}. ${q.q}\n   ${good?"✔ Correct":"✘ Incorrect"} – votre réponse : ${q.opts[a]}\n`;if(!good)s+=`   Bonne réponse : ${q.opts[q.good]}\n`});
-  s+=`\nSeuil de validation : ${PASS}/10.`;
-  return s;
+const PDF_W={R:[761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,278,278,355,556,556,889,667,191,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,278,278,584,584,584,556,1015,667,667,722,722,667,611,778,722,278,500,667,556,833,722,778,667,778,722,667,611,722,667,944,667,667,611,278,278,278,469,556,333,556,556,500,556,556,278,556,556,222,222,500,222,833,556,556,556,556,333,500,278,556,500,722,500,500,500,334,260,334,584,761,556,0,222,556,333,1000,556,556,333,1000,667,333,1000,0,611,0,0,222,222,333,333,350,556,1000,333,1000,500,333,944,0,500,667,278,333,556,556,556,556,260,556,333,737,370,556,584,333,737,333,400,584,333,333,333,556,537,278,333,333,365,556,834,834,834,611,667,667,667,667,667,667,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,500,556,556,556,556,278,278,278,278,556,556,556,556,556,556,556,584,611,556,556,556,556,500,556,500],B:[761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,761,278,333,474,556,556,889,722,238,333,333,389,584,278,333,278,278,556,556,556,556,556,556,556,556,556,556,333,333,584,584,584,611,975,722,722,722,722,667,611,778,722,278,556,722,611,833,722,778,667,778,722,667,611,722,667,944,667,667,611,333,278,333,584,556,333,556,611,556,611,556,333,611,611,278,278,556,278,889,611,611,611,611,389,556,333,611,556,778,556,556,500,389,280,389,584,761,556,0,278,556,500,1000,556,556,333,1000,667,333,1000,0,611,0,0,278,278,500,500,350,556,1000,333,1000,556,333,944,0,500,667,278,333,556,556,556,556,280,556,333,737,370,556,584,333,737,333,400,584,333,333,333,611,556,278,333,333,365,556,834,834,834,611,722,722,722,722,722,722,1000,722,667,667,667,667,278,278,278,278,722,722,778,778,778,778,778,584,778,722,722,722,722,667,667,611,556,556,556,556,556,556,889,556,556,556,556,556,278,278,278,278,611,611,611,611,611,611,611,584,611,611,611,611,611,556,611,556]};const PDF_HI={"€":128,"‚":130,"ƒ":131,"„":132,"…":133,"†":134,"‡":135,"ˆ":136,"‰":137,"Š":138,"‹":139,"Œ":140,"Ž":142,"‘":145,"’":146,"“":147,"”":148,"•":149,"–":150,"—":151,"˜":152,"™":153,"š":154,"›":155,"œ":156,"ž":158,"Ÿ":159};
+/* Générateur PDF autonome (A4, Helvetica WinAnsi) – fonctionne hors connexion */
+function pdfEnc(s){let o="";for(const c of String(s).normalize("NFC")){const k=c.charCodeAt(0);if(k<128||(k>=160&&k<256))o+=c;else if(PDF_HI[c]!=null)o+=String.fromCharCode(PDF_HI[c]);else if(c===" "||c===" ")o+=" ";else o+="?"}return o}
+function pdfW(s,f,size){const w=PDF_W[f];let t=0;for(let i=0;i<s.length;i++)t+=w[s.charCodeAt(i)]||556;return t*size/1000}
+function pdfWrap(text,f,size,max){const words=pdfEnc(text).split(/\s+/).filter(Boolean),lines=[];let cur="";for(const w of words){const t=cur?cur+" "+w:w;if(pdfW(t,f,size)<=max||!cur)cur=t;else{lines.push(cur);cur=w}}if(cur)lines.push(cur);return lines.length?lines:[""]}
+function buildResultPdf(o){
+  const W=595.28,H=841.89,M=40,CW=W-2*M,BOT=58;
+  const C={band:[.11,.125,.149],yel:[.949,.702,0],ink:[.082,.094,.11],mut:[.353,.384,.416],line:[.863,.875,.851],ok:[.114,.455,.282],okbg:[.886,.945,.91],bad:[.69,.149,.122],badbg:[.984,.902,.89],white:[1,1,1],soft:[.953,.957,.945]};
+  const n=v=>(Math.round(v*100)/100).toString();
+  const col=(c,op)=>`${n(c[0])} ${n(c[1])} ${n(c[2])} ${op}`;
+  const esc=s=>s.replace(/\\/g,"\\\\").replace(/\(/g,"\\(").replace(/\)/g,"\\)");
+  const pages=[];let ops,y;
+  const rect=(x,yy,w,h,c)=>ops.push(`${col(c,"rg")} ${n(x)} ${n(yy)} ${n(w)} ${n(h)} re f`);
+  const stroke=(x,yy,w,h,c,lw)=>ops.push(`${col(c,"RG")} ${n(lw||1)} w ${n(x)} ${n(yy)} ${n(w)} ${n(h)} re S`);
+  const text=(s,x,yy,f,size,c,enc)=>ops.push(`BT /${f==="B"?"F2":"F1"} ${n(size)} Tf ${col(c,"rg")} ${n(x)} ${n(yy)} Td (${esc(enc?s:pdfEnc(s))}) Tj ET`);
+  const textR=(s,xr,yy,f,size,c)=>{const e=pdfEnc(s);text(e,xr-pdfW(e,f,size),yy,f,size,c,true)};
+  const stripe=(yy,h)=>{rect(0,yy,W,h,C.band);for(let x=-h;x<W;x+=24)ops.push(`${col(C.yel,"rg")} ${n(x)} ${n(yy)} m ${n(x+12)} ${n(yy)} l ${n(x+12+h)} ${n(yy+h)} l ${n(x+h)} ${n(yy+h)} l f`)};
+  const shield=(x,yy,s)=>{const P=(px,py)=>`${n(x+px*s)} ${n(yy+(64-py)*s)}`;
+    ops.push(`${col(C.yel,"rg")} ${P(32,3)} m ${P(57,11)} l ${P(57,30)} l ${P(55,44)} ${P(45,56)} ${P(32,61)} c ${P(19,56)} ${P(9,44)} ${P(7,30)} c ${P(7,11)} l h f`);
+    ops.push(`${col(C.ink,"rg")} ${P(32,8)} m ${P(52,14.5)} l ${P(52,30)} l ${P(50,42)} ${P(42,52)} ${P(32,55.6)} c ${P(22,52)} ${P(14,42)} ${P(12,30)} c ${P(12,14.5)} l h f`);
+    ops.push(`${col(C.yel,"rg")} ${P(19,38)} m ${P(19,28)} ${P(25,22.5)} ${P(32,22.5)} c ${P(39,22.5)} ${P(45,28)} ${P(45,38)} c h f`);
+    ops.push(`${col(C.yel,"rg")} ${n(x+15*s)} ${n(yy+(64-42)*s)} ${n(34*s)} ${n(5*s)} re f`);
+    ops.push(`${col(C.yel,"RG")} ${n(3.6*s)} w 1 J 1 j ${P(24,47)} m ${P(29,51.5)} l ${P(40,41.5)} l S`)};
+  const newPage=first=>{ops=[];pages.push(ops);
+    if(first){rect(0,H-92,W,92,C.band);stripe(H-100,8);shield(M,H-80,1.05);
+      text("TEST SÉCURITÉ",M+82,H-46,"B",22,C.white);text("INDUSTRIE",M+82,H-66,"B",13,C.yel);
+      textR("Résultat de test",W-M,H-46,"R",11,[.8,.82,.84]);textR(o.dateTxt,W-M,H-64,"R",10,[.8,.82,.84]);y=H-130}
+    else{rect(0,H-40,W,40,C.band);stripe(H-46,6);text("TEST SÉCURITÉ INDUSTRIE",M,H-26,"B",11,C.white);textR(`${o.name} · ${o.theme} · Test ${o.num}`,W-M,H-26,"R",9,[.8,.82,.84]);y=H-74}};
+  const need=h=>{if(y-h<BOT)newPage(false)};
+  newPage(true);
+  /* bloc identité + score */
+  const boxH=118;rect(M,y-boxH,CW,boxH,C.soft);stroke(M,y-boxH,CW,boxH,C.line,.8);
+  const rows=[["Technicien",o.name],["Thème",o.theme],["Test",`n°${o.num} – ${o.title}`],["Date",o.dateTxt]];
+  let ry=y-24;for(const[k,v]of rows){text(k.toUpperCase(),M+16,ry,"B",7.5,C.mut);const l=pdfWrap(v,"B",11,CW-210);text(l[0],M+16,ry-13,"B",11,C.ink,true);ry-=26}
+  const sx=W-M-150;const sc=`${o.score}`;const scW=pdfW(sc,"B",44);
+  text(sc,sx+75-(scW+pdfW("/10","B",18))/2,y-62,"B",44,C.ink);text("/10",sx+75-(scW+pdfW("/10","B",18))/2+scW,y-62,"B",18,C.mut);
+  const stC=o.ok?C.ok:C.bad,st=o.ok?"VALIDÉ":"À REVOIR",stW=pdfW(pdfEnc(st),"B",13)+24;
+  rect(sx+75-stW/2,y-98,stW,24,o.ok?C.okbg:C.badbg);stroke(sx+75-stW/2,y-98,stW,24,stC,1.6);text(st,sx+75-stW/2+12,y-90.5,"B",13,stC);
+  y-=boxH+14;
+  text(`${o.score} bonne${o.score>1?"s":""} réponse${o.score>1?"s":""} sur 10 · seuil de validation : ${o.pass}/10`,M,y,"R",9.5,C.mut);y-=26;
+  text("DÉTAIL DES RÉPONSES",M,y,"B",11,C.ink);y-=8;ops.push(`${col(C.yel,"rg")} ${n(M)} ${n(y)} 60 2.5 re f`);y-=16;
+  /* questions */
+  const tx=M+30,tw=CW-30;
+  o.items.forEach((it,i)=>{
+    const qL=pdfWrap(`${i+1}. ${it.q}`,"B",10.5,tw),aL=pdfWrap(`Votre réponse : ${it.given}`,"R",9.5,tw),
+      gL=it.ok?[]:pdfWrap(`Bonne réponse : ${it.right}`,"B",9.5,tw),eL=it.ok?[]:pdfWrap(it.expl,"R",9,tw);
+    const h=qL.length*13.5+aL.length*12.5+gL.length*12.5+(eL.length?eL.length*11.5+3:0)+16;
+    need(h);const top=y;
+    const c=it.ok?C.ok:C.bad;rect(M,top-17,18,18,c);
+    if(it.ok)ops.push(`1 1 1 RG 2 w 1 J 1 j ${n(M+4.5)} ${n(top-8)} m ${n(M+8)} ${n(top-12)} l ${n(M+14)} ${n(top-4)} l S`);
+    else ops.push(`1 1 1 RG 2 w 1 J ${n(M+5)} ${n(top-4)} m ${n(M+13)} ${n(top-12)} l S ${n(M+13)} ${n(top-4)} m ${n(M+5)} ${n(top-12)} l S`);
+    let yy=top-10;for(const l of qL){text(l,tx,yy,"B",10.5,C.ink,true);yy-=13.5}
+    yy+=1;for(const l of aL){text(l,tx,yy,"R",9.5,it.ok?C.ok:C.bad,true);yy-=12.5}
+    for(const l of gL){text(l,tx,yy,"B",9.5,C.ok,true);yy-=12.5}
+    if(eL.length){yy-=3;for(const l of eL){text(l,tx,yy,"R",9,C.mut,true);yy-=11.5}}
+    y=top-h;ops.push(`${col(C.line,"RG")} .6 w ${n(M)} ${n(y+7)} m ${n(W-M)} ${n(y+7)} l S`);
+  });
+  /* signatures */
+  need(96);y-=10;const bw=(CW-16)/2;
+  for(const[k,x]of[["Signature du technicien",M],["Visa du responsable",M+bw+16]]){stroke(x,y-74,bw,74,C.line,1);text(k,x+10,y-16,"B",8.5,C.mut)}
+  y-=84;
+  /* pieds de page */
+  pages.forEach((p,i)=>{ops=p;ops.push(`${col(C.line,"RG")} .6 w ${n(M)} 40 m ${n(W-M)} 40 l S`);
+    text("Test Sécurité Industrie · outil de révision, ne remplace pas les formations obligatoires",M,27,"R",7.5,C.mut);
+    textR(`Page ${i+1} / ${pages.length}`,W-M,27,"R",7.5,C.mut)});
+  /* assemblage */
+  const objs=[];const add=s=>{objs.push(s);return objs.length};
+  add("<< /Type /Catalog /Pages 2 0 R >>");add("PAGES");
+  add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+  add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+  const kids=[];
+  for(const p of pages){const s=p.join("\n");const cid=add(`<< /Length ${s.length} >>\nstream\n${s}\nendstream`);
+    kids.push(add(`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ${W} ${H}] /Resources << /Font << /F1 3 0 R /F2 4 0 R >> >> /Contents ${cid} 0 R >>`))}
+  objs[1]=`<< /Type /Pages /Kids [${kids.map(k=>k+" 0 R").join(" ")}] /Count ${kids.length} >>`;
+  const info=add(`<< /Title (${esc(pdfEnc("Résultat – "+o.name+" – "+o.theme+" test "+o.num))}) /Producer (Test Securite Industrie) >>`);
+  let out="%PDF-1.4\n%\xE2\xE3\xCF\xD3\n";const off=[];
+  objs.forEach((s,i)=>{off.push(out.length);out+=`${i+1} 0 obj\n${s}\nendobj\n`});
+  const xr=out.length;out+=`xref\n0 ${objs.length+1}\n0000000000 65535 f \n`+off.map(v=>String(v).padStart(10,"0")+" 00000 n \n").join("");
+  out+=`trailer\n<< /Size ${objs.length+1} /Root 1 0 R /Info ${info} 0 R >>\nstartxref\n${xr}\n%%EOF`;
+  const b=new Uint8Array(out.length);for(let i=0;i<out.length;i++)b[i]=out.charCodeAt(i)&255;
+  return new Blob([b],{type:"application/pdf"});
 }
+
+function canShareFiles(){try{return !!(navigator.canShare&&navigator.share&&navigator.canShare({files:[new File(["x"],"t.pdf",{type:"application/pdf"})]}))}catch(e){return false}}
+function asciiName(s){return String(s).normalize("NFD").replace(/[̀-ͯ]/g,"").replace(/[^A-Za-z0-9]+/g,"-").replace(/^-|-$/g,"").slice(0,40)||"technicien"}
+function makePdf(){
+  const th=T[state.th],t=th.tests[state.ti],d=state.date;
+  const blob=buildResultPdf({name:profile.name,theme:th.name,num:state.ti+1,title:t.t,dateTxt:fmtDate(d),score:state.score,ok:state.score>=PASS,pass:PASS,
+    items:state.qs.map((q,i)=>({q:q.q,given:q.opts[state.answers[i]],right:q.opts[q.good],expl:q.expl,ok:state.answers[i]===q.good}))});
+  const ds=d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+  const fname=`Resultat_${asciiName(profile.name)}_${asciiName(th.name)}_Test${state.ti+1}_${ds}.pdf`;
+  return {blob,fname,file:new File([blob],fname,{type:"application/pdf"})};
+}
+function downloadPdf(r){const u=URL.createObjectURL(r.blob);const a=document.createElement("a");a.href=u;a.download=r.fname;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),60000)}
 function renderResult(){
   const th=T[state.th],t=th.tests[state.ti],ok=state.score>=PASS;
   band.innerHTML=`${backBtn()}<div class="band-title">Résultat</div><div class="band-count">${state.score}/10</div>`;
   document.getElementById("backBtn").onclick=()=>history.back();
   const wrong=state.qs.map((q,i)=>({q,i,a:state.answers[i]})).filter(x=>x.a!==x.q.good);
-  const m=state.mail;
+  const share=canShareFiles();
   app.innerHTML=`<section class="result fade">
   <div class="score"><small>${esc(th.name)} · Test ${state.ti+1}</small><div class="score-num">${state.score}<span>/10</span></div><div class="stamp ${ok?"ok":"bad"}">${ok?"Validé":"À revoir"}</div><small>${esc(t.t)} · ${fmtDate(state.date)}</small></div>
 
-  <div class="panel" id="mailPanel">
-    <h3>Recevoir mon résultat</h3>
-    <p>Entrez votre adresse email pour recevoir le détail de votre test.</p>
+  <div class="panel" id="pdfPanel">
+    <h3>Mon résultat en PDF</h3>
+    <p>${share?"Entrez votre nom, puis envoyez le PDF à votre responsable par Gmail, WhatsApp ou une autre application.":"Entrez votre nom, puis enregistrez le PDF pour l'envoyer à votre responsable."}</p>
     <label for="fName">Nom et prénom<input id="fName" autocomplete="name" value="${esc(profile.name)}" placeholder="Ex. Jean Dupont"></label>
-    <label for="fMail">Adresse email<input id="fMail" type="email" inputmode="email" autocomplete="email" value="${esc(profile.email)}" placeholder="nom@exemple.fr"></label>
-    <div id="mailErr" class="err" hidden></div>
-    <button class="btn" id="sendMail">${m?"Mettre à jour":"Recevoir mon résultat par email"}</button>
-    ${m?`<p class="okmsg">Résultat prêt pour <span class="addr">${esc(m)}</span>.</p><a class="btn dark" id="openMail" href="${esc(state.href)}" target="_blank" rel="noopener">Ouvrir ma messagerie</a><p>Votre messagerie s'ouvre avec le résultat déjà rédigé : appuyez sur Envoyer. Elle ne s'ouvre pas ? Copiez le résultat et collez-le dans un email.</p><button class="btn ghost" id="copyRes">Copier le résultat</button><div id="copyMsg" class="okmsg" hidden>Résultat copié.</div>`:""}
+    <div id="pdfErr" class="err" hidden></div>
+    ${share?`<button class="btn" id="sharePdf">Envoyer le PDF</button><button class="btn ghost" id="dlPdf">Enregistrer le PDF</button>`:`<button class="btn" id="dlPdf">Enregistrer le PDF</button>`}
+    <div id="pdfMsg" class="okmsg" hidden></div>
   </div>
 
   ${wrong.length?`<div class="panel"><h3>Corrections</h3><div class="review">${wrong.map(x=>`<div class="rv"><p class="q">${x.i+1}. ${esc(x.q.q)}</p><p class="a">Votre réponse : ${esc(x.q.opts[x.a])}</p><p class="a">Bonne réponse : <b>${esc(x.q.opts[x.q.good])}</b></p><p class="a">${esc(x.q.expl)}</p></div>`).join("")}</div></div>`:`<div class="panel"><h3>Sans faute</h3><p>Toutes vos réponses sont correctes.</p></div>`}
@@ -1497,21 +1581,16 @@ function renderResult(){
   document.getElementById("retry").onclick=()=>startQuiz(state.th,state.ti,true);
   const nt=document.getElementById("nextTest");if(nt)nt.onclick=()=>startQuiz(state.th,state.ti+1,true);
   document.getElementById("toTheme").onclick=()=>history.back();
-  document.getElementById("sendMail").onclick=()=>{
-    const name=document.getElementById("fName").value.trim(),mail=document.getElementById("fMail").value.trim();
-    const e=document.getElementById("mailErr");
-    if(!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(mail)){e.textContent="Adresse email invalide. Vérifiez qu'elle contient bien @ et un point, par exemple nom@exemple.fr.";e.hidden=false;return}
-    e.hidden=true;profile.name=name;profile.email=mail;saveProfile();state.mail=mail;
-    const subj=`Résultat Test Sécurité Industrie – ${th.name} test ${state.ti+1} : ${state.score}/10`;
-    const href=`mailto:${encodeURIComponent(mail)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(reportText())}`;
-    state.href=href;render();
-    document.getElementById("mailPanel").scrollIntoView({block:"start"});
-  };
-  const cp=document.getElementById("copyRes");
-  if(cp)cp.onclick=()=>{const txt=reportText();const done=()=>{document.getElementById("copyMsg").hidden=false};
-    if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(txt).then(done,()=>fallbackCopy(txt,done))}else fallbackCopy(txt,done)};
+  const msg=t=>{const m=document.getElementById("pdfMsg");m.textContent=t;m.hidden=!t};
+  const prep=()=>{const name=document.getElementById("fName").value.trim(),e=document.getElementById("pdfErr");
+    if(name.length<2){e.textContent="Entrez votre nom et prénom : ils figurent sur le PDF.";e.hidden=false;document.getElementById("fName").focus();return null}
+    e.hidden=true;profile.name=name;saveProfile();return makePdf()};
+  document.getElementById("dlPdf").onclick=()=>{const r=prep();if(!r)return;downloadPdf(r);msg("PDF enregistré dans vos Téléchargements : "+r.fname)};
+  const sp=document.getElementById("sharePdf");
+  if(sp)sp.onclick=async()=>{const r=prep();if(!r)return;msg("");
+    try{await navigator.share({files:[r.file],title:"Résultat Test Sécurité Industrie",text:`Résultat de ${profile.name} – ${th.name}, test ${state.ti+1} : ${state.score}/10 (${ok?"validé":"à revoir"}).`});msg("PDF prêt à être envoyé.")}
+    catch(err){if(err&&err.name==="AbortError")return;downloadPdf(r);msg("L'envoi direct n'a pas fonctionné. Le PDF a été enregistré dans vos Téléchargements : "+r.fname)}};
 }
-function fallbackCopy(txt,done){const ta=document.createElement("textarea");ta.value=txt;ta.setAttribute("readonly","");ta.style.position="fixed";ta.style.opacity="0";document.body.appendChild(ta);ta.select();try{document.execCommand("copy");done()}catch(e){}ta.remove()}
 function render(){
   if(state.view==="home")renderHome();
   else if(state.view==="theme")renderTheme();
